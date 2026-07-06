@@ -1,0 +1,6 @@
+id: windows-ie
+public_key: ed25519:jvAgDgkeLzxvTfXdmHIfN9WYVjRRjDdFt99t4UFh4yU
+labels:
+  host: windows-ie
+  os: windows
+workspace_root: .bazaar/workspaces/7d850df9-54da-47a1-9c0d-acda78f395d3
