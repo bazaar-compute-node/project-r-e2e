@@ -1,0 +1,5 @@
+name: codex
+type: codex
+runtime: codex
+runner: windows-ie
+model: gpt-5
