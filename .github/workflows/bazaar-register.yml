@@ -1,0 +1,26 @@
+name: bazaar-register
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  register:
+    if: (github.event_name == 'issues' && startsWith(github.event.issue.body, '/r register ')) || (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/r register '))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Register Bazaar runner
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const run = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/bazaar-register.js`);
+            await run({ github, context, core });

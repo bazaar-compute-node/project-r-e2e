@@ -1,0 +1,17 @@
+permissions:
+  run:
+    users: []
+    teams: []
+    roles: [committer, maintainer, owner]
+  register_runner:
+    users: []
+    teams: []
+    roles: [maintainer, owner]
+  manage_members:
+    users: []
+    teams: []
+    roles: [owner]
+  revoke_runner:
+    users: []
+    teams: []
+    roles: [maintainer, owner]

@@ -1,0 +1,13 @@
+providers:
+  - type: github
+    surface: issues
+    installation: github_actions
+    auto_merge_registration: true
+    required_permissions:
+      contents: write
+      issues: write
+      pull_requests: write
+    notes:
+      - The repo-local Bazaar GitHub Actions workflow handles audited registration issues and manual compatibility comments.
+      - Registration PRs are auto-merged after policy allows the issue or comment author.
+      - Workflow token permissions are not runner identity.
