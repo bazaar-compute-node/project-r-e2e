@@ -1,6 +1,0 @@
-id: fedora-linus
-public_key: ed25519:emeaD+2aXjVkrzDfarWhxvLdil4nhY6t6hF4Ln8t/gI
-labels:
-  host: fedora
-  os: linux
-workspace_root: .bazaar/workspaces/9a1fd997-6a9b-4346-ac2d-d597eda5d751
