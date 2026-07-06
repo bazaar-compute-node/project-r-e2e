@@ -1,0 +1,6 @@
+id: 019f382a-209d-76dc-88e0-faddab9e5b41
+public_key: ed25519:4q+8v5j+Bv9NJaV/FaGvycUniETkxTBQSOhhdqqWmsM
+labels:
+  host: windows-task-scheduler-ie
+  os: windows
+workspace_root: .bazaar/workspaces/019f382b-8593-77bc-81bf-17e672ece823
