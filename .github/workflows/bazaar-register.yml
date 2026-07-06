@@ -24,3 +24,16 @@ jobs:
           script: |
             const run = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/bazaar-register.js`);
             await run({ github, context, core });
+
+  register-agent:
+    if: (github.event_name == 'issues' && startsWith(github.event.issue.body, '/r agent register ')) || (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/r agent register '))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Register Bazaar agent
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const run = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/bazaar-agent.js`);
+            await run({ github, context, core });

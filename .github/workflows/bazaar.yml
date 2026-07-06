@@ -1,0 +1,22 @@
+name: bazaar
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  run:
+    if: startsWith(github.event.comment.body, '/r run ')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Post task spec
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const run = require("./.github/scripts/bazaar-run.js");
+            await run({ github, context, core });

@@ -1,13 +1,18 @@
 providers:
   - type: github
     surface: issues
-    installation: github_actions
+    installation: github_actions_and_bazaar_app
     auto_merge_registration: true
     required_permissions:
       contents: write
       issues: write
       pull_requests: write
+    broker_app_permissions:
+      metadata: read
+      contents: read
+      issues: write
     notes:
-      - The repo-local Bazaar GitHub Actions workflow handles audited registration issues and manual compatibility comments.
+      - Repo-local Bazaar GitHub Actions handle audited runner and agent registration issues and /r run task-spec comments.
       - Registration PRs are auto-merged after policy allows the issue or comment author.
-      - Workflow token permissions are not runner identity.
+      - The hosted Bazaar broker uses the official GitHub App to write claim/status/final-report comments.
+      - Workflow token permissions and App installation permissions are not runner identity.

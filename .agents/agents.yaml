@@ -1,6 +1,0 @@
-agents:
-  - name: codex
-    runtime: codex
-    selector:
-      agent: codex
-    credential_profile: default

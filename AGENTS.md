@@ -12,8 +12,11 @@ not clone and mutate the template repository itself.
 3. Set workflow permissions:
    - `Read and write permissions`
    - `Allow GitHub Actions to create and approve pull requests`
-4. Confirm `.github/workflows/bazaar-register.yml` exists on the default branch.
-5. On each compute machine, run `bcn register` against the target repository:
+4. Install the official Bazaar GitHub App for the target repository or owning
+   organization.
+5. Confirm `.github/workflows/bazaar-register.yml` and
+   `.github/workflows/bazaar.yml` exist on the default branch.
+6. On each compute machine, run `bcn register` against the target repository:
 
    ```sh
    bcn register https://github.com/owner/repo \
@@ -22,12 +25,14 @@ not clone and mutate the template repository itself.
      --label.kind=review
    ```
 
-6. Wait for the `bazaar-register` workflow run. It should be a
+7. Wait for the `bazaar-register` workflow run. It should be a
    `issues` event for a new registration issue and should open a registration
    PR.
-7. Wait for the workflow to open and merge the registration PR, then confirm
+8. Wait for the workflow to open and merge the registration PR, then confirm
    the registration issue contains the workflow result before using that runner
    for tasks.
+9. Register a runtime agent with `bcn agent register`, wait for its PR to merge,
+   then request work with `/r run ...`.
 
 ## Notes for Agents
 
@@ -44,9 +49,11 @@ not clone and mutate the template repository itself.
 - Keep provider-specific details at the workflow/adapter boundary. Bazaar's
   core model is: audited request, policy check, registry PR/MR, signed runner
   runtime.
+- Runtime capability state lives in `agents/<agent-id>/agent.yaml`, created by
+  `bcn agent register`. Do not reintroduce `.agents/agents.yaml`.
 - If several runners register in parallel against an empty registry, merge one
   registration PR first and ask the next runner to register again so
-  `.agents/runners.yaml` is based on the latest default branch.
-- The template intentionally uses repository-local GitHub Actions and the
-  repository `GITHUB_TOKEN`; users do not need to install a shared GitHub App or
-  operate a webhook server for the MVP.
+  `members/<login>/scope.yaml` is based on the latest default branch.
+- The template uses repository-local GitHub Actions for audited registry PRs
+  and `/r run` task-spec comments. Runtime claim/status/final-report comments
+  are written by the hosted broker through the official Bazaar GitHub App.

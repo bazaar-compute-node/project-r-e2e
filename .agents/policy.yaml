@@ -7,6 +7,10 @@ permissions:
     users: []
     teams: []
     roles: [maintainer, owner]
+  register_agent:
+    users: []
+    teams: []
+    roles: [maintainer, owner]
   manage_members:
     users: []
     teams: []
