@@ -1,5 +1,4 @@
 name: codex
 type: codex
 runtime: codex
-runner: windows-ie
-model: gpt-5
+model: gpt-5.5

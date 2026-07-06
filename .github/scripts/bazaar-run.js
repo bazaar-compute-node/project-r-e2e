@@ -23,10 +23,9 @@ module.exports = async function run({ github, context, core }) {
     return;
   }
 
-  const agentPath = `agents/${sanitizeRefPart(command.agent)}/agent.yaml`;
-  const agent = await getRepoFileOrNull(github, owner, repo, agentPath, baseBranch);
-  if (!agent) {
-    await commentOnIssue(github, owner, repo, issueNumber, `Bazaar run denied for agent \`${command.agent}\`: \`${agentPath}\` is not registered. Register it with \`bcn agent register\` first.`);
+  const agentPaths = await listRegisteredAgentPaths(github, owner, repo, command.agent, baseBranch);
+  if (!agentPaths.length) {
+    await commentOnIssue(github, owner, repo, issueNumber, `Bazaar run denied for agent \`${command.agent}\`: no runner has registered that agent. Register it with \`bcn agent register\` first.`);
     core.setFailed(`agent ${command.agent} is not registered`);
     return;
   }
@@ -138,6 +137,21 @@ async function getRepoFile(github, owner, repo, path, ref) {
   };
 }
 
+async function getRepoDirectoryOrNull(github, owner, repo, path, ref) {
+  try {
+    const response = await github.rest.repos.getContent({ owner, repo, path, ref });
+    if (!Array.isArray(response.data)) {
+      throw new Error(`${path} is not a directory`);
+    }
+    return response.data;
+  } catch (error) {
+    if (error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function getRepoFileOrNull(github, owner, repo, path, ref) {
   try {
     return await getRepoFile(github, owner, repo, path, ref);
@@ -147,6 +161,25 @@ async function getRepoFileOrNull(github, owner, repo, path, ref) {
     }
     throw error;
   }
+}
+
+async function listRegisteredAgentPaths(github, owner, repo, agentName, ref) {
+  const runners = await getRepoDirectoryOrNull(github, owner, repo, "agents", ref);
+  if (!runners) {
+    return [];
+  }
+  const paths = [];
+  const filename = `${sanitizeRefPart(agentName)}.yaml`;
+  for (const runner of runners) {
+    if (runner.type !== "dir" || !runner.name) {
+      continue;
+    }
+    const path = `agents/${runner.name}/${filename}`;
+    if (await getRepoFileOrNull(github, owner, repo, path, ref)) {
+      paths.push(path);
+    }
+  }
+  return paths;
 }
 
 function permissionToRoles(permission) {

@@ -20,8 +20,8 @@ not need to clone this template locally.
 
    ```sh
    bcn register https://github.com/owner/repo \
-     --runner runner-1 \
      --label.pool=default \
+     --label.host="$(hostname)" \
      --label.kind=review
    ```
 
@@ -29,7 +29,7 @@ not need to clone this template locally.
    The issue body contains the audited Bazaar command:
 
    ```text
-   /r register runner=runner-1 pubkey=ed25519:... workspace_root=.bazaar/workspaces/<uuid> label.pool=default label.kind=review
+   /r register runner=<runner-uuid-v7> pubkey=ed25519:... workspace_root=.bazaar/workspaces/<uuid-v7> label.pool=default label.host=<host> label.kind=review
    ```
 
 9. The repo-local GitHub Actions workflow wakes on the opened issue, checks
@@ -43,9 +43,8 @@ not need to clone this template locally.
    ```sh
    bcn agent register https://github.com/owner/repo \
      --agent codex \
-     --runner runner-1 \
      --type codex \
-     --model gpt-5 \
+     --model gpt-5.5 \
      --secret-ref env:OPENAI_API_KEY
    ```
 
@@ -59,10 +58,11 @@ not need to clone this template locally.
 audited registration issue per request. The optional `--issue N` flag is only
 for manual compatibility with `/r register ...` issue comments.
 
-`bcn register` registers a compute node. It assigns and persists a UUID-backed
-workspace root locally, and that path is included in the audited registration
-command. Agent capabilities are separate from node identity and are declared
-through `bcn agent register`, not `bcn register`.
+`bcn register` registers a compute node. It assigns and persists a UUIDv7
+runner id and workspace root locally, and those values are included in the
+audited registration command. Human-readable machine names belong in labels,
+not in the runner id. Agent capabilities are separate from node identity and
+are declared through `bcn agent register`, not `bcn register`.
 Member identity is derived from the GitHub issue actor, not from the command
 payload. The workflow writes `members/<github-login>/member.yaml` and
 `members/<github-login>/scope.yaml` alongside `runners/<runner-id>/runner.yaml`.
@@ -81,7 +81,7 @@ future edit/delete permissions should check member scope plus policy.
 .github/workflows/bazaar.yml           repo-owned run-command workflow
 .github/ISSUE_TEMPLATE/bazaar.md       optional issue template for run commands
 runners/<runner-id>/runner.yaml        issue-created node registry state
-agents/<agent-id>/agent.yaml           issue-created agent registry state
+agents/<runner-id>/<agent-id>.yaml     issue-created agent registry state
 members/<member-id>/member.yaml        issue-created human member identity
 members/<member-id>/scope.yaml         issue-created member scope bindings
 ```
@@ -113,8 +113,8 @@ repository-local automation.
 
 ```sh
 bcn register https://github.com/owner/repo \
-  --runner runner-1 \
   --label.pool=default \
+  --label.host="$(hostname)" \
   --label.kind=review
 ```
 
@@ -129,16 +129,15 @@ issue author.
 ```sh
 bcn agent register https://github.com/owner/repo \
   --agent codex \
-  --runner runner-1 \
   --type codex \
-  --model gpt-5 \
+  --model gpt-5.5 \
   --secret-ref env:OPENAI_API_KEY
 ```
 
 The command creates an audited agent registration issue. The repo-local
-workflow checks `.agents/policy.yaml`, verifies the target runner exists and the
-issue author has scope for it, then opens and merges a PR that writes
-`agents/<agent-id>/agent.yaml`.
+workflow checks `.agents/policy.yaml`, verifies the local generated runner id
+exists and the issue author has scope for it, then opens and merges a PR that writes
+`agents/<runner-id>/<agent-id>.yaml`.
 
 ## Run Command
 
@@ -147,7 +146,8 @@ issue author has scope for it, then opens and merges a PR that writes
 ```
 
 The repo-local workflow checks `.agents/policy.yaml`, verifies
-`agents/<agent-id>/agent.yaml` exists, and posts a `bazaar/task-spec` block.
+at least one runner has registered `agents/<runner-id>/<agent-id>.yaml`, and
+posts a `bazaar/task-spec` block.
 The slash command can be the opening issue body or a later issue comment.
 Registered daemons poll the issue, claim eligible tasks through the hosted
 broker, and the official Bazaar App writes claim/status/final-report comments.

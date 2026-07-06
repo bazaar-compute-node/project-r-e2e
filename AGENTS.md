@@ -20,8 +20,8 @@ not clone and mutate the template repository itself.
 
    ```sh
    bcn register https://github.com/owner/repo \
-     --runner runner-1 \
      --label.pool=default \
+     --label.host="$(hostname)" \
      --label.kind=review
    ```
 
@@ -49,8 +49,9 @@ not clone and mutate the template repository itself.
 - Keep provider-specific details at the workflow/adapter boundary. Bazaar's
   core model is: audited request, policy check, registry PR/MR, signed runner
   runtime.
-- Runtime capability state lives in `agents/<agent-id>/agent.yaml`, created by
-  `bcn agent register`. Do not reintroduce `.agents/agents.yaml`.
+- Runtime capability state lives in `agents/<runner-id>/<agent-id>.yaml`,
+  created by `bcn agent register`. The runner id is the `bcn`-generated UUID,
+  not a human-readable host name. Do not reintroduce `.agents/agents.yaml`.
 - If several runners register in parallel against an empty registry, merge one
   registration PR first and ask the next runner to register again so
   `members/<login>/scope.yaml` is based on the latest default branch.

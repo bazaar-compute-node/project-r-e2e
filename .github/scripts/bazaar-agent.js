@@ -40,7 +40,7 @@ module.exports = async function run({ github, context, core }) {
     return;
   }
 
-  const agentPath = `agents/${sanitizeRefPart(command.agent)}/agent.yaml`;
+  const agentPath = `agents/${sanitizeRefPart(command.runner)}/${sanitizeRefPart(command.agent)}.yaml`;
   const current = await getRepoFileOrNull(github, owner, repo, agentPath, baseBranch);
   const updatedAgent = marshalAgent(command);
   if (current && updatedAgent === current.text) {
@@ -54,7 +54,7 @@ module.exports = async function run({ github, context, core }) {
     repo,
     ref: `heads/${baseBranch}`
   });
-  const branch = `bazaar/agent-${sanitizeRefPart(command.agent)}-${Math.floor(Date.now() / 1000)}`;
+  const branch = `bazaar/agent-${sanitizeRefPart(command.runner)}-${sanitizeRefPart(command.agent)}-${Math.floor(Date.now() / 1000)}`;
   await github.rest.git.createRef({
     owner,
     repo,
@@ -77,7 +77,7 @@ module.exports = async function run({ github, context, core }) {
     body: [
       `Requested by @${actor} via \`/r agent register\`.`,
       "",
-      `This PR updates \`${agentPath}\` and binds the agent to runner \`${command.runner}\`.`,
+      `This PR writes \`${agentPath}\` and binds the agent to runner \`${command.runner}\`.`,
       "",
       issueNumber ? `Closes #${issueNumber}` : ""
     ].filter(Boolean).join("\n"),
@@ -179,8 +179,7 @@ function marshalAgent(command) {
   const lines = [
     `name: ${yamlScalar(command.agent)}`,
     `type: ${yamlScalar(command.type)}`,
-    `runtime: ${yamlScalar(command.type)}`,
-    `runner: ${yamlScalar(command.runner)}`
+    `runtime: ${yamlScalar(command.type)}`
   ];
   if (command.model) {
     lines.push(`model: ${yamlScalar(command.model)}`);

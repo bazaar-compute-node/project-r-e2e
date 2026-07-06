@@ -231,7 +231,7 @@ function parseRegisterCommand(body) {
     throw new Error("missing pubkey");
   }
   if (!command.runner_id) {
-    command.runner_id = defaultRunnerID(command.public_key);
+    throw new Error("missing runner");
   }
   if (!command.workspace_root) {
     throw new Error("missing workspace_root");
@@ -401,11 +401,6 @@ function readAutoMergeOptIn(path) {
     return false;
   }
   return /(^|\n)\s*auto_merge_registration:\s*true\s*(\n|$)/.test(fs.readFileSync(path, "utf8"));
-}
-
-function defaultRunnerID(publicKey) {
-  const value = publicKey.replace(/^ed25519:/, "").slice(0, 12).toLowerCase();
-  return `runner-${value}`;
 }
 
 function sanitizeRefPart(value) {
