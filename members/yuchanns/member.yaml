@@ -1,0 +1,10 @@
+provider: github
+id: yuchanns
+login: yuchanns
+roles:
+  - owner
+  - maintainer
+  - committer
+  - reader
+permissions:
+  members_manage: true
