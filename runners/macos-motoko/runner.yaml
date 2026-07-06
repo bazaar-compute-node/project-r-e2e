@@ -1,0 +1,6 @@
+id: macos-motoko
+public_key: ed25519:kuaA7AkOIgBjCVk3qfiQ0Yhbziml1gb6Vsn1tSsudqU
+labels:
+  host: macos-motoko
+  os: macos
+workspace_root: .bazaar/workspaces/e59180ae-3038-4f18-a5bf-b14b097bf100
