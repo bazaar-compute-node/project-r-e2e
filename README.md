@@ -148,6 +148,7 @@ issue author has scope for it, then opens and merges a PR that writes
 
 The repo-local workflow checks `.agents/policy.yaml`, verifies
 `agents/<agent-id>/agent.yaml` exists, and posts a `bazaar/task-spec` block.
+The slash command can be the opening issue body or a later issue comment.
 Registered daemons poll the issue, claim eligible tasks through the hosted
 broker, and the official Bazaar App writes claim/status/final-report comments.
 

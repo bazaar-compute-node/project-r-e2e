@@ -6,9 +6,11 @@ labels: ["bazaar"]
 ---
 
 <!--
-Describe the task you want a Bazaar agent to handle.
+Describe the task you want a Bazaar agent to handle. You can write the command
+as the issue body, or create the issue first and add the command as a later
+comment.
 
-Examples:
+Example:
 
 /r run agent=codex label.pool=default describe the repository
 

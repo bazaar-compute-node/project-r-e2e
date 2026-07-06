@@ -4,11 +4,11 @@ module.exports = async function run({ github, context, core }) {
   const policyPath = ".agents/policy.yaml";
   const event = context.payload;
   const { owner, repo } = context.repo;
-  const actor = event.comment?.user?.login || "";
+  const source = requestSource(context, event);
+  const actor = source.actor;
   const issueNumber = event.issue?.number || 0;
-  const commentID = event.comment?.id || 0;
   const baseBranch = event.repository?.default_branch || "main";
-  const command = parseRunCommand(event.comment?.body || "");
+  const command = parseRunCommand(source.body);
 
   const permission = await github.rest.repos.getCollaboratorPermissionLevel({
     owner,
@@ -34,13 +34,15 @@ module.exports = async function run({ github, context, core }) {
   const spec = {
     kind: "bazaar/task-spec",
     apiVersion: "bazaar.dev/v0",
-    task_id: `r-${commentID}`,
+    task_id: `r-${source.kind}-${source.id}`,
     config_ref: `${baseBranch}@${context.sha}`,
     requested_by: actor,
     source: {
       repo: `${owner}/${repo}`,
       issue: issueNumber,
-      comment: commentID
+      comment: source.id,
+      kind: source.kind,
+      id: source.id
     },
     selector: {
       agent: command.agent
@@ -54,6 +56,23 @@ module.exports = async function run({ github, context, core }) {
 
   await commentOnIssue(github, owner, repo, issueNumber, marshalBlock(spec));
 };
+
+function requestSource(context, event) {
+  if (context.eventName === "issues") {
+    return {
+      kind: "issue_body",
+      id: event.issue?.id || event.issue?.number || 0,
+      actor: event.issue?.user?.login || "",
+      body: event.issue?.body || ""
+    };
+  }
+  return {
+    kind: "issue_comment",
+    id: event.comment?.id || 0,
+    actor: event.comment?.user?.login || "",
+    body: event.comment?.body || ""
+  };
+}
 
 function parseRunCommand(body) {
   const fields = body.trim().split(/\s+/).filter(Boolean);

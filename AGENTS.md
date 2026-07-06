@@ -55,5 +55,6 @@ not clone and mutate the template repository itself.
   registration PR first and ask the next runner to register again so
   `members/<login>/scope.yaml` is based on the latest default branch.
 - The template uses repository-local GitHub Actions for audited registry PRs
-  and `/r run` task-spec comments. Runtime claim/status/final-report comments
-  are written by the hosted broker through the official Bazaar GitHub App.
+  and `/r run` task-spec comments from either an opening issue body or a later
+  issue comment. Runtime claim/status/final-report comments are written by the
+  hosted broker through the official Bazaar GitHub App.

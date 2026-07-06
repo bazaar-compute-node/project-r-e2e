@@ -1,6 +1,8 @@
 name: bazaar
 
 on:
+  issues:
+    types: [opened]
   issue_comment:
     types: [created]
 
@@ -10,7 +12,7 @@ permissions:
 
 jobs:
   run:
-    if: startsWith(github.event.comment.body, '/r run ')
+    if: (github.event_name == 'issues' && startsWith(github.event.issue.body, '/r run ')) || (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/r run '))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
