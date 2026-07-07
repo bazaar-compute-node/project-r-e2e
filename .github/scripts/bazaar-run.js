@@ -53,7 +53,7 @@ module.exports = async function run({ github, context, core }) {
     spec.selector.labels = command.labels;
   }
 
-  await commentOnIssue(github, owner, repo, issueNumber, marshalBlock(spec));
+  await commentOnIssue(github, owner, repo, issueNumber, detailsBlock(marshalBlock(spec)));
 };
 
 function requestSource(context, event) {
@@ -112,6 +112,10 @@ function parseRunCommand(body) {
 
 function readFile(path) {
   return fs.readFileSync(path, "utf8");
+}
+
+function detailsBlock(block) {
+  return `<details>\n<summary>details</summary>\n\n${block}\n</details>`;
 }
 
 async function commentOnIssue(github, owner, repo, issueNumber, body) {
