@@ -1,0 +1,7 @@
+name: codex
+type: codex
+runtime: codex
+model: gpt-5.5
+selector:
+  host: macos-launchd-motoko
+  os: macos
