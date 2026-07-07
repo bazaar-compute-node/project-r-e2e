@@ -64,7 +64,7 @@ jobs:
           repo_input="$RUNNER_TEMP/repo-query-input.json"
           cat >"$repo_input" <<JSON
           {
-            "query": "query($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { id name owner { __typename id login } } }",
+            "query": "query(\$owner: String!, \$repo: String!) { repository(owner: \$owner, name: \$repo) { id name owner { __typename id login } } }",
             "variables": {
               "owner": "$OWNER",
               "repo": "$REPO"
@@ -83,7 +83,7 @@ jobs:
           projects_input="$RUNNER_TEMP/projects-query-input.json"
           cat >"$projects_input" <<JSON
           {
-            "query": "query($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { projectsV2(first: 5) { nodes { id number title url } } } }",
+            "query": "query(\$owner: String!, \$repo: String!) { repository(owner: \$owner, name: \$repo) { projectsV2(first: 5) { nodes { id number title url } } } }",
             "variables": {
               "owner": "$OWNER",
               "repo": "$REPO"
@@ -95,7 +95,7 @@ jobs:
           create_input="$RUNNER_TEMP/create-project-input.json"
           cat >"$create_input" <<JSON
           {
-            "query": "mutation($ownerId: ID!, $repoId: ID!, $title: String!) { createProjectV2(input: { ownerId: $ownerId, repositoryId: $repoId, title: $title }) { projectV2 { id number title url } } }",
+            "query": "mutation(\$ownerId: ID!, \$repoId: ID!, \$title: String!) { createProjectV2(input: { ownerId: \$ownerId, repositoryId: \$repoId, title: \$title }) { projectV2 { id number title url } } }",
             "variables": {
               "ownerId": "$owner_id",
               "repoId": "$repo_id",
@@ -119,7 +119,7 @@ jobs:
           add_input="$RUNNER_TEMP/add-item-input.json"
           cat >"$add_input" <<JSON
           {
-            "query": "mutation($projectId: ID!, $contentId: ID!) { addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) { item { id } } }",
+            "query": "mutation(\$projectId: ID!, \$contentId: ID!) { addProjectV2ItemById(input: { projectId: \$projectId, contentId: \$contentId }) { item { id } } }",
             "variables": {
               "projectId": "$project_id",
               "contentId": "$issue_node_id"
@@ -131,7 +131,7 @@ jobs:
           delete_input="$RUNNER_TEMP/delete-project-input.json"
           cat >"$delete_input" <<JSON
           {
-            "query": "mutation($projectId: ID!) { deleteProjectV2(input: { projectId: $projectId }) { projectV2 { id } } }",
+            "query": "mutation(\$projectId: ID!) { deleteProjectV2(input: { projectId: \$projectId }) { projectV2 { id } } }",
             "variables": {
               "projectId": "$project_id"
             }
