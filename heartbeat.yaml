@@ -1,0 +1,14 @@
+heartbeat:
+  issue: 40
+  issue_url: https://github.com/bazaar-compute-node/project-r-e2e/issues/40
+runners:
+  019f3828-4667-7ee4-a7fc-ef4710ac0d31:
+    comment_id: 4901744906
+    comment_url: "https://github.com/bazaar-compute-node/project-r-e2e/issues/40#issuecomment-4901744906"
+    state: pending
+    updated_at: 2026-07-07T08:31:34.418Z
+  019f382a-209d-76dc-88e0-faddab9e5b41:
+    comment_id: 4901744979
+    comment_url: "https://github.com/bazaar-compute-node/project-r-e2e/issues/40#issuecomment-4901744979"
+    state: pending
+    updated_at: 2026-07-07T08:31:34.948Z
