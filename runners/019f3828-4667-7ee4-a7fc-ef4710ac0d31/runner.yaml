@@ -1,0 +1,6 @@
+id: 019f3828-4667-7ee4-a7fc-ef4710ac0d31
+public_key: ed25519:fJ8K8gBB8epPvwyvuwTqWJXApUBUksLTbVvNfL/y7Ts
+labels:
+  host: macos-launchd-motoko
+  os: macos
+workspace_root: .bazaar/workspaces/019f3a0a-5a8c-7a3d-80d9-361092e5321e
