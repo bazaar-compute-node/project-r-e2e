@@ -2,3 +2,6 @@ name: codex
 type: codex
 runtime: codex
 model: gpt-5.5
+selector:
+  host: windows-task-scheduler-ie
+  os: windows
