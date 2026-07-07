@@ -1,0 +1,141 @@
+name: probe-projects-v2-token
+
+on:
+  push:
+    branches:
+      - "probe/actions-projects-v2-token"
+
+permissions:
+  contents: read
+  issues: write
+  repository-projects: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe Projects v2 with GITHUB_TOKEN
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -uo pipefail
+
+          summary="$GITHUB_STEP_SUMMARY"
+          title="Bazaar GITHUB_TOKEN probe $RUN_ID"
+          {
+            echo "# Projects v2 GITHUB_TOKEN probe"
+            echo
+            echo "Repository: $OWNER/$REPO"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+          } >> "$summary"
+
+          record() {
+            echo "| $1 | $2 |" >> "$summary"
+            echo "$1: $2"
+          }
+
+          run_graphql() {
+            local name="$1"
+            local input="$2"
+            local output="$RUNNER_TEMP/$name.json"
+            local error="$RUNNER_TEMP/$name.err"
+            if gh api graphql --input "$input" >"$output" 2>"$error"; then
+              record "$name" "ok"
+              cat "$output"
+              return 0
+            fi
+            record "$name" "failed"
+            {
+              echo
+              echo "## $name stderr"
+              echo
+              echo '```text'
+              cat "$error"
+              echo '```'
+            } >> "$summary"
+            return 1
+          }
+
+          repo_input="$RUNNER_TEMP/repo-query-input.json"
+          cat >"$repo_input" <<JSON
+          {
+            "query": "query($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { id name owner { __typename id login } } }",
+            "variables": {
+              "owner": "$OWNER",
+              "repo": "$REPO"
+            }
+          }
+          JSON
+          if ! repo_json="$(run_graphql repo_query "$repo_input")"; then
+            exit 0
+          fi
+
+          repo_id="$(echo "$repo_json" | jq -r '.data.repository.id // empty')"
+          owner_id="$(echo "$repo_json" | jq -r '.data.repository.owner.id // empty')"
+          owner_type="$(echo "$repo_json" | jq -r '.data.repository.owner.__typename // empty')"
+          record owner_type "$owner_type"
+
+          projects_input="$RUNNER_TEMP/projects-query-input.json"
+          cat >"$projects_input" <<JSON
+          {
+            "query": "query($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { projectsV2(first: 5) { nodes { id number title url } } } }",
+            "variables": {
+              "owner": "$OWNER",
+              "repo": "$REPO"
+            }
+          }
+          JSON
+          run_graphql repository_projects_query "$projects_input" || true
+
+          create_input="$RUNNER_TEMP/create-project-input.json"
+          cat >"$create_input" <<JSON
+          {
+            "query": "mutation($ownerId: ID!, $repoId: ID!, $title: String!) { createProjectV2(input: { ownerId: $ownerId, repositoryId: $repoId, title: $title }) { projectV2 { id number title url } } }",
+            "variables": {
+              "ownerId": "$owner_id",
+              "repoId": "$repo_id",
+              "title": "$title"
+            }
+          }
+          JSON
+          if ! create_json="$(run_graphql create_project "$create_input")"; then
+            exit 0
+          fi
+
+          project_id="$(echo "$create_json" | jq -r '.data.createProjectV2.projectV2.id // empty')"
+          project_url="$(echo "$create_json" | jq -r '.data.createProjectV2.projectV2.url // empty')"
+          record created_project "$project_url"
+
+          issue_json="$(gh api -X POST "repos/$OWNER/$REPO/issues" -f title="Bazaar project token probe $RUN_ID" -f body="Temporary issue for Projects v2 GITHUB_TOKEN probe.")"
+          issue_node_id="$(echo "$issue_json" | jq -r '.node_id')"
+          issue_number="$(echo "$issue_json" | jq -r '.number')"
+          record created_issue "#$issue_number"
+
+          add_input="$RUNNER_TEMP/add-item-input.json"
+          cat >"$add_input" <<JSON
+          {
+            "query": "mutation($projectId: ID!, $contentId: ID!) { addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) { item { id } } }",
+            "variables": {
+              "projectId": "$project_id",
+              "contentId": "$issue_node_id"
+            }
+          }
+          JSON
+          run_graphql add_issue_to_project "$add_input" || true
+
+          delete_input="$RUNNER_TEMP/delete-project-input.json"
+          cat >"$delete_input" <<JSON
+          {
+            "query": "mutation($projectId: ID!) { deleteProjectV2(input: { projectId: $projectId }) { projectV2 { id } } }",
+            "variables": {
+              "projectId": "$project_id"
+            }
+          }
+          JSON
+          run_graphql delete_project "$delete_input" || true
+          gh issue close "$issue_number" -r "not planned" -c "Closing temporary Projects v2 token probe issue." || true
