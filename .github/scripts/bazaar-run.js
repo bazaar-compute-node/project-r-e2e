@@ -8,7 +8,11 @@ module.exports = async function run({ github, context, core }) {
   const actor = source.actor;
   const issueNumber = event.issue?.number || 0;
   const baseBranch = event.repository?.default_branch || "main";
-  const command = parseRunCommand(source.body);
+  const command = parseInboundCommand(source.body);
+  if (!command) {
+    core.info("No Bazaar inbound task in this event");
+    return;
+  }
 
   const permission = await github.rest.repos.getCollaboratorPermissionLevel({
     owner,
@@ -17,16 +21,12 @@ module.exports = async function run({ github, context, core }) {
   });
   const roles = permissionToRoles(permission.data.permission);
   const policy = parsePolicy(readFile(policyPath));
-  if (!can(policy, "run", actor, roles)) {
-    await commentOnIssue(github, owner, repo, issueNumber, `Bazaar run denied for agent \`${command.agent}\`: @${actor} is not allowed by \`${policyPath}\`.`);
-    core.setFailed(`actor ${actor} is not allowed to run Bazaar tasks`);
-    return;
-  }
-
-  const agentPaths = await listRegisteredAgentPaths(github, owner, repo, command.agent, baseBranch);
-  if (!agentPaths.length) {
-    await commentOnIssue(github, owner, repo, issueNumber, `Bazaar run denied for agent \`${command.agent}\`: no runner has registered that agent. Register it with \`bcn agent register\` first.`);
-    core.setFailed(`agent ${command.agent} is not registered`);
+  const agents = await listRegisteredAgents(github, owner, repo, command.agent, baseBranch);
+  const authorized = agents.filter((agent) => canUseAgent(policy, agent, actor, roles));
+  if (!authorized.length) {
+    const target = command.agent ? `agent \`${command.agent}\`` : "any registered agent";
+    await commentOnIssue(github, owner, repo, issueNumber, `Bazaar run denied for ${target}: @${actor} is not allowed by agent policy.`);
+    core.setFailed(`actor ${actor} is not allowed to use ${target}`);
     return;
   }
 
@@ -43,12 +43,13 @@ module.exports = async function run({ github, context, core }) {
       kind: source.kind,
       id: source.id
     },
-    selector: {
-      agent: command.agent
-    },
+    selector: {},
     prompt: command.prompt,
     created_at: new Date().toISOString()
   };
+  if (command.agent) {
+    spec.selector.agent = command.agent;
+  }
   if (Object.keys(command.labels).length) {
     spec.selector.labels = command.labels;
   }
@@ -62,7 +63,7 @@ function requestSource(context, event) {
       kind: "issue_body",
       id: event.issue?.id || event.issue?.number || 0,
       actor: event.issue?.user?.login || "",
-      body: event.issue?.body || ""
+      body: [event.issue?.title || "", event.issue?.body || ""].filter(Boolean).join("\n\n")
     };
   }
   return {
@@ -73,8 +74,39 @@ function requestSource(context, event) {
   };
 }
 
-function parseRunCommand(body) {
+function parseInboundCommand(body) {
   const fields = body.trim().split(/\s+/).filter(Boolean);
+  if (!fields.length) {
+    throw new Error("missing prompt");
+  }
+  if (fields[0] === "/r" && fields[1] !== "run") {
+    return null;
+  }
+  if (fields[0] === "/r") {
+    return parseRunCommand(fields);
+  }
+  const command = {
+    agent: "",
+    labels: {},
+    prompt: body.trim()
+  };
+  const lines = body.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const parts = lines[i].trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2 && parts[0] === "/at") {
+      command.agent = parts[1];
+      lines.splice(i, 1);
+      break;
+    }
+  }
+  command.prompt = lines.join("\n").trim();
+  if (!command.prompt) {
+    throw new Error("missing prompt");
+  }
+  return command;
+}
+
+function parseRunCommand(fields) {
   if (fields.length < 3 || fields[0] !== "/r" || fields[1] !== "run") {
     throw new Error("expected /r run <prompt>");
   }
@@ -167,23 +199,38 @@ async function getRepoFileOrNull(github, owner, repo, path, ref) {
   }
 }
 
-async function listRegisteredAgentPaths(github, owner, repo, agentName, ref) {
+async function listRegisteredAgents(github, owner, repo, agentName, ref) {
   const runners = await getRepoDirectoryOrNull(github, owner, repo, "agents", ref);
   if (!runners) {
     return [];
   }
-  const paths = [];
-  const filename = `${sanitizeRefPart(agentName)}.yaml`;
+  const agents = [];
   for (const runner of runners) {
     if (runner.type !== "dir" || !runner.name) {
       continue;
     }
-    const path = `agents/${runner.name}/${filename}`;
-    if (await getRepoFileOrNull(github, owner, repo, path, ref)) {
-      paths.push(path);
+    const files = await getRepoDirectoryOrNull(github, owner, repo, `agents/${runner.name}`, ref);
+    if (!files) {
+      continue;
+    }
+    for (const file of files) {
+      if (file.type !== "file" || !file.name.endsWith(".yaml")) {
+        continue;
+      }
+      const path = `agents/${runner.name}/${file.name}`;
+      const loaded = await getRepoFileOrNull(github, owner, repo, path, ref);
+      if (!loaded) {
+        continue;
+      }
+      const agent = parseAgent(loaded.text);
+      agent.runner = runner.name;
+      if (agentName && agent.name !== agentName) {
+        continue;
+      }
+      agents.push(agent);
     }
   }
-  return paths;
+  return agents;
 }
 
 function permissionToRoles(permission) {
@@ -230,6 +277,48 @@ function can(policy, action, user, roles) {
     return false;
   }
   return permission.users.includes(user) || roles.some((role) => permission.roles.includes(role));
+}
+
+function canUseAgent(policy, agent, user, roles) {
+  if (agent.allowed && !permissionEmpty(agent.allowed)) {
+    return permissionAllows(agent.allowed, user, roles);
+  }
+  return can(policy, "run", user, roles);
+}
+
+function permissionAllows(permission, user, roles) {
+  return permission.users.includes(user) || roles.some((role) => permission.roles.includes(role));
+}
+
+function permissionEmpty(permission) {
+  return !permission.users.length && !permission.roles.length;
+}
+
+function parseAgent(yaml) {
+  return {
+    name: parseScalar(yaml, "name"),
+    allowed: {
+      users: parseNestedList(yaml, "allowed", "users"),
+      roles: parseNestedList(yaml, "allowed", "roles")
+    }
+  };
+}
+
+function parseScalar(yaml, field) {
+  const match = yaml.match(new RegExp(`(^|\\n)${escapeRegExp(field)}:\\s*([^\\n]+)`));
+  return match ? stripQuotes(match[2].trim()) : "";
+}
+
+function parseNestedList(yaml, parent, field) {
+  const parentMatch = yaml.match(new RegExp(`(^|\\n)${escapeRegExp(parent)}:\\s*\\n([\\s\\S]*?)(?=\\n\\S|$)`));
+  if (!parentMatch) {
+    return [];
+  }
+  const fieldMatch = parentMatch[2].match(new RegExp(`(^|\\n)\\s{2}${escapeRegExp(field)}:\\s*\\[([^\\]]*)\\]`));
+  if (!fieldMatch) {
+    return [];
+  }
+  return fieldMatch[2].split(",").map((item) => stripQuotes(item.trim())).filter(Boolean);
 }
 
 function marshalBlock(value) {
