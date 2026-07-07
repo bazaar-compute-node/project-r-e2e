@@ -1,0 +1,23 @@
+name: bazaar-heartbeat
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  heartbeat-registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Reconcile Bazaar heartbeat registry
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const run = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/bazaar-heartbeat.js`);
+            await run({ github, context, core });
