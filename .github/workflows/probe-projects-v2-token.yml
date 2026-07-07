@@ -36,7 +36,7 @@ jobs:
 
           record() {
             echo "| $1 | $2 |" >> "$summary"
-            echo "$1: $2"
+            echo "$1: $2" >&2
           }
 
           run_graphql() {
@@ -58,6 +58,7 @@ jobs:
               cat "$error"
               echo '```'
             } >> "$summary"
+            cat "$error" >&2
             return 1
           }
 
