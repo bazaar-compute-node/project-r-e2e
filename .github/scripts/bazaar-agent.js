@@ -134,6 +134,7 @@ function parseAgentRegisterCommand(body) {
   }
   const command = {
     agent: "",
+    display_name: "",
     labels: {},
     model: "",
     runner: "",
@@ -153,6 +154,8 @@ function parseAgentRegisterCommand(body) {
       command.runner = value;
     } else if (key === "type" || key === "runtime") {
       command.type = value;
+    } else if (key === "display_name" || key === "display-name") {
+      command.display_name = value;
     } else if (key === "model") {
       command.model = value;
     } else if (key === "credential_profile") {
@@ -181,6 +184,9 @@ function marshalAgent(command) {
     `type: ${yamlScalar(command.type)}`,
     `runtime: ${yamlScalar(command.type)}`
   ];
+  if (command.display_name) {
+    lines.push(`display_name: ${yamlScalar(command.display_name)}`);
+  }
   if (command.model) {
     lines.push(`model: ${yamlScalar(command.model)}`);
   }
