@@ -1,0 +1,164 @@
+name: probe-linked-project-token
+
+on:
+  push:
+    branches:
+      - "probe/actions-projects-v2-linked-token"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  repository-projects: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe linked Projects v2 with GITHUB_TOKEN
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          set +e
+
+          summary="$GITHUB_STEP_SUMMARY"
+          issue_number=""
+
+          cleanup_issue() {
+            if [ -n "${issue_number:-}" ]; then
+              gh issue close "$issue_number" -R "$OWNER/$REPO" -r "not planned" -c "Closing temporary linked Projects v2 token probe issue." >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup_issue EXIT
+
+          {
+            echo "# Linked Projects v2 GITHUB_TOKEN probe"
+            echo
+            echo "Repository: $OWNER/$REPO"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+          } >> "$summary"
+
+          record() {
+            echo "| $1 | $2 |" >> "$summary"
+            echo "$1: $2" >&2
+          }
+
+          run_graphql() {
+            local name="$1"
+            local input="$2"
+            local output="$RUNNER_TEMP/$name.json"
+            local error="$RUNNER_TEMP/$name.err"
+            if gh api graphql --input "$input" >"$output" 2>"$error"; then
+              record "$name" "ok"
+              cat "$output"
+              return 0
+            fi
+            record "$name" "failed"
+            {
+              echo
+              echo "## $name stderr"
+              echo
+              echo '```text'
+              cat "$error"
+              echo '```'
+            } >> "$summary"
+            cat "$error" >&2
+            return 1
+          }
+
+          projects_input="$RUNNER_TEMP/projects-query-input.json"
+          cat >"$projects_input" <<JSON
+          {
+            "query": "query(\$owner: String!, \$repo: String!) { repository(owner: \$owner, name: \$repo) { projectsV2(first: 10) { nodes { id number title url fields(first: 50) { nodes { ... on ProjectV2SingleSelectField { id name options { id name } } } } } } } }",
+            "variables": {
+              "owner": "$OWNER",
+              "repo": "$REPO"
+            }
+          }
+          JSON
+          if ! projects_json="$(run_graphql linked_projects_query "$projects_input")"; then
+            exit 0
+          fi
+
+          project_count="$(echo "$projects_json" | jq -r '.data.repository.projectsV2.nodes | length')"
+          record linked_project_count "$project_count"
+
+          project_info="$(echo "$projects_json" | jq -c '
+            [
+              .data.repository.projectsV2.nodes[]
+              | . as $project
+              | [($project.fields.nodes // [])[] | select(.name == "Status") | select((.options // []) | length > 0)] as $fields
+              | select($fields | length > 0)
+              | $fields[0] as $field
+              | (($field.options // []) | map(select(.name == "In Progress")) | .[0] // $field.options[0]) as $option
+              | {
+                  project_id: $project.id,
+                  project_title: $project.title,
+                  project_url: $project.url,
+                  field_id: $field.id,
+                  field_name: $field.name,
+                  option_id: $option.id,
+                  option_name: $option.name
+                }
+            ][0] // empty
+          ')"
+          if [ -z "$project_info" ]; then
+            record writable_status_fixture "missing linked project with Status field"
+            exit 0
+          fi
+
+          project_id="$(echo "$project_info" | jq -r '.project_id')"
+          project_title="$(echo "$project_info" | jq -r '.project_title')"
+          project_url="$(echo "$project_info" | jq -r '.project_url')"
+          field_id="$(echo "$project_info" | jq -r '.field_id')"
+          option_id="$(echo "$project_info" | jq -r '.option_id')"
+          option_name="$(echo "$project_info" | jq -r '.option_name')"
+          record selected_project "$project_title"
+          record selected_project_url "$project_url"
+          record selected_status_option "$option_name"
+
+          issue_json="$(gh api -X POST "repos/$OWNER/$REPO/issues" -f title="Bazaar linked project token probe $RUN_ID" -f body="Temporary issue for linked Projects v2 GITHUB_TOKEN probe.")"
+          issue_node_id="$(echo "$issue_json" | jq -r '.node_id')"
+          issue_number="$(echo "$issue_json" | jq -r '.number')"
+          record created_issue "#$issue_number"
+
+          add_input="$RUNNER_TEMP/add-item-input.json"
+          cat >"$add_input" <<JSON
+          {
+            "query": "mutation(\$projectId: ID!, \$contentId: ID!) { addProjectV2ItemById(input: { projectId: \$projectId, contentId: \$contentId }) { item { id } } }",
+            "variables": {
+              "projectId": "$project_id",
+              "contentId": "$issue_node_id"
+            }
+          }
+          JSON
+          if ! add_json="$(run_graphql add_issue_to_project "$add_input")"; then
+            exit 0
+          fi
+
+          item_id="$(echo "$add_json" | jq -r '.data.addProjectV2ItemById.item.id // empty')"
+          record added_item "$item_id"
+
+          update_input="$RUNNER_TEMP/update-status-input.json"
+          cat >"$update_input" <<JSON
+          {
+            "query": "mutation(\$projectId: ID!, \$itemId: ID!, \$fieldId: ID!, \$optionId: String!) { updateProjectV2ItemFieldValue(input: { projectId: \$projectId, itemId: \$itemId, fieldId: \$fieldId, value: { singleSelectOptionId: \$optionId } }) { projectV2Item { id } } }",
+            "variables": {
+              "projectId": "$project_id",
+              "itemId": "$item_id",
+              "fieldId": "$field_id",
+              "optionId": "$option_id"
+            }
+          }
+          JSON
+          if ! run_graphql update_project_status "$update_input" >/dev/null; then
+            exit 0
+          fi
+
+          record status_update "ok"
